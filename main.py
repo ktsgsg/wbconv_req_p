@@ -30,7 +30,13 @@ def getWebclass():
     req = requests.get(url,allow_redirects=False)
     dicts =req.cookies.get_dict()
     dicts["iPlanetDirectoryPro"]=tokenId
+    print(dicts)
     req2=requests.post(url,headers=headers,cookies=dicts,allow_redirects=False)
-    print(req2.status_code)
+    jsn_header = req2.headers
+    print(jsn_header['Location'])
+    req3=requests.get(jsn_header['Location'],cookies=dicts)
+    print(req3.status_code)
+    print(req3.cookies)
+
 getWebclass()
 
