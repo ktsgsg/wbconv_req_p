@@ -7,6 +7,13 @@ import time
 import os
 
 defaultpath = "class"
+webclassurl = "https://rpwebcls.meijo-u.ac.jp"
+
+def getacs(source):
+    soup = BeautifulSoup(source,"html.parser")
+    exccode = soup.find("script").string
+    acsPath = exccode.split('"')[1].replace('&amp;',"&")
+    return acsPath
 
 class webclass:
     def __init__(self):
@@ -48,10 +55,7 @@ class webclass:
         print(cookies)
         kugiri()
         loginphp = requests.get(url,cookies=cookies,allow_redirects=False)
-        soup = BeautifulSoup(loginphp.text,"html.parser")
-        exccode = soup.find("script").string
-        acsPath = exccode.split('"')[1]
-        print(acsPath)
+        acsPath = getacs(loginphp.text)
         kugiri()
         e = loginphp.cookies.get_dict()
         cookies['WBT_Session'] =e['WBT_Session']
@@ -59,11 +63,11 @@ class webclass:
         cookies['WCAC'] = e['WCAC']
         print(cookies)
         kugiri()
-        webclassurl = "https://rpwebcls.meijo-u.ac.jp" + acsPath
-        webclasresponce = requests.get(webclassurl,cookies=cookies)
+        webclassurl_ = webclassurl + acsPath
+        webclasresponce = requests.get(webclassurl_,cookies=cookies)
         cookies['wcui_session_settings'] = webclasresponce.cookies.get_dict()['wcui_session_settings']
-        print(requests.get(webclassurl,cookies=cookies).headers)
-        self.url = webclassurl
+        print(requests.get(webclassurl_,cookies=cookies).headers)
+        self.url = webclassurl_
         self.cookies = cookies
 
 def getToken():
@@ -86,21 +90,75 @@ def getToken():
     json.dump(jsn,file,indent=2)
     file.close()
     statuscode = 0
-    while(statuscode != 200):
+    for i in range(10):
         token = requests.post(url,headers=headers,json=jsn)
         statuscode = token.status_code
         #print(statuscode)
+        if statuscode == 200:
+            break
         time.sleep(0.5)
+        
     succesURL = json.loads(token.text)
     tokenId = succesURL["tokenId"]
     #print(succesURL)
     print(f"tokenId:{tokenId}")
     #kugiri()
     return tokenId
+
 def kugiri():
     print("########################################################")
 
-def getClasses(page):
+def responceacspath(url,cookies):
+    source = requests.get(url,cookies=cookies)
+    #print(source.text)
+    acspath = getacs(source.text)
+    responce = requests.get(webclassurl+acspath,cookies=cookies)
+    #print(responce.text)
+    return responce
+
+def getcontents(sectionelement,cookies):
+    title = sectionelement.find("h4",class_="panel-title").get_text()
+    print(f"コース名,{title}")
+
+    contentselements = sectionelement.find(class_="list-group").find_all("section",class_="cl-contentsList_listGroupItem")#授業内容のグループを取得
+    for j in range(len(contentselements)):
+        try:
+            contenttitle = contentselements[j].find("h4",class_="cm-contentsList_contentName").find("a")#授業内容のグループのタイトルを取得
+            contenturl = contenttitle['href']
+            session_qs = urllib.parse.urlparse(contenturl).query#クエリパラメータを取得
+            session_qd = urllib.parse.parse_qs(session_qs)#クエリパラメータを辞書型に変換
+            contenturl = "https://rpwebcls.meijo-u.ac.jp/webclass/do_contents.php?reset_status=1&"+"set_contents_id="+session_qd["set_contents_id"][0]
+            print(f"コンテンツ,{contenttitle.get_text()}")
+            print(f"URL,{contenturl}")
+            source = requests.get(contenturl,cookies=cookies)
+            acspath = getacs(source.text)
+            url = webclassurl+"/webclass/"+acspath
+            source = requests.get(url,cookies=cookies)
+            print(source.text)
+        except:
+            print("コンテンツ,閉鎖")
+
+
+
+def getsections(page,cookies):
+    divs = page.find_all("div")  # divタグを持つ要素を取得
+    for n in divs:
+        n.extract()
+    name = page.get_text()
+    calssname = name[9:]  # "授業名"の部分を取得
+    print(f"授業名:{calssname}")  # 各リンクのURLを表示
+    classurl = webclassurl+page['href']
+    #print(f"URL:{classurl}")
+    os.makedirs(defaultpath+"/"+calssname, exist_ok=True)
+    
+    source = responceacspath(classurl,cookies)#偽リダイレクトの時のアクセス方法
+    soup = BeautifulSoup(source.text,"html.parser")
+    sectionelements = soup.find_all("section",class_="cl-contentsList_folder")#授業内容の部分を取得
+    for i in range(len(sectionelements)):
+        getcontents(sectionelements[i],cookies)
+    kugiri()
+
+def getClasses(page,cookies):
     soup = BeautifulSoup(page, "html.parser")
 
     ##print("ページのHTMLを取得中")
@@ -108,17 +166,10 @@ def getClasses(page):
     schedule_element = soup.find(id = "schedule-table")
     hrefs = schedule_element.find_all("a", href=True)
     for href in hrefs:
-        divs = href.find_all("div")  # divタグを持つ要素を取得
-        for n in divs:
-            n.extract()
-        name = href.get_text()
-        calssname = name[9:]  # "授業名"の部分を取得
-        print(f"NAME:{calssname}")  # 各リンクのURLを表示
-        print(f"URL:{"https://rpwebcls.meijo-u.ac.jp"+href['href']}")
-        os.makedirs(defaultpath+"/"+calssname, exist_ok=True)
+        getsections(href,cookies)
 
 os.makedirs(defaultpath,exist_ok=True)
 wbc = webclass()
 source = requests.get(wbc.url,cookies=wbc.cookies).text
-getClasses(source)
+getClasses(source,wbc.cookies)
 
