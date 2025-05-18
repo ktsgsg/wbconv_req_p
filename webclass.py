@@ -1,28 +1,16 @@
-#import urllib.parse
+import urllib.parse
 import requests
-#import json
-#import urllib
-#from bs4 import BeautifulSoup
-#import time
+import json
+import urllib
+from bs4 import BeautifulSoup
+import time
 import os
-#import sys
-import datetime
-import webclass
 import general
+import filedownload
 
-
-#適当にコメントアウト
-"""
 defaultpath = "class"
 webclassurl = "https://rpwebcls.meijo-u.ac.jp"
-def putlog(str):
-    STDOUT = sys.stdout
-    fp = open("log.txt","a")
-    sys.stdout =  fp
-    print(str)
-    fp.close()
-    sys.stdout = STDOUT
-    
+
 def getacs(source):
     soup = BeautifulSoup(source,"html.parser")
     exccode = soup.find("script").string
@@ -60,23 +48,23 @@ class webclass:
         defaultsp = "https://rpwebcls.meijo-u.ac.jp/simplesaml/module.php/saml/sp/saml2-acs.php/default-sp"
         wbres = requests.post(defaultsp,cookies=cookies,headers=headers,data=req,allow_redirects=False)
         #print(data)
-        kugiri()
+        general.kugiri()
         print("SAMLAuthToken")
         SimpleSAML = wbres.cookies.get_dict()['SimpleSAML']
         SimpleSAMLAuthToken = wbres.cookies.get_dict()['SimpleSAMLAuthToken']
         cookies['SimpleSAML'] = SimpleSAML
         cookies['SimpleSAMLAuthToken'] = SimpleSAMLAuthToken
         print(cookies)
-        kugiri()
+        general.kugiri()
         loginphp = requests.get(url,cookies=cookies,allow_redirects=False)
         acsPath = getacs(loginphp.text)
-        kugiri()
+        general.kugiri()
         e = loginphp.cookies.get_dict()
         cookies['WBT_Session'] =e['WBT_Session']
         cookies['SimpleSAML'] = e['SimpleSAML']
         cookies['WCAC'] = e['WCAC']
         print(cookies)
-        kugiri()
+        general.kugiri()
         webclassurl_ = webclassurl + acsPath
         webclasresponce = requests.get(webclassurl_,cookies=cookies)
         cookies['wcui_session_settings'] = webclasresponce.cookies.get_dict()['wcui_session_settings']
@@ -119,9 +107,6 @@ def getToken():
     #kugiri()
     return tokenId
 
-def kugiri():
-    print("########################################################")
-
 def responceacspath(url,cookies):
     source = requests.get(url,cookies=cookies)
     #print(source.text)
@@ -130,10 +115,14 @@ def responceacspath(url,cookies):
     #print(responce.text)
     return responce
 
-def getcontents(sectionelement:BeautifulSoup,cookies):
+def getcontents(sectionelement:BeautifulSoup,cookies,classname):
     title = sectionelement.find("h4",class_="panel-title").get_text()
     print(f"コース名,{title}")
-    putlog(f"コース名,{title}" )
+    general.putlog(f"コース名,{title}" )
+    courcename = title
+    no_courcename = False 
+    if courcename == "" or courcename == " " :#もしcourcenameが空だったら(味文みたいなやつの場合)
+        no_courcename = True #no_courcenameフラグを立てる 
 
     contentselements = sectionelement.find(class_="list-group").find_all("section",class_="cl-contentsList_listGroupItem")#授業内容のグループを取得
     for j in range(len(contentselements)):
@@ -144,50 +133,72 @@ def getcontents(sectionelement:BeautifulSoup,cookies):
             session_qd = urllib.parse.parse_qs(session_qs)#クエリパラメータを辞書型に変換
             contenturl = "https://rpwebcls.meijo-u.ac.jp/webclass/do_contents.php?reset_status=1&"+"set_contents_id="+session_qd["set_contents_id"][0]
             print(f"コンテンツ,{contenttitle.get_text()}")
+            contentname = contenttitle.get_text()
+            
+            if no_courcename and j == 0:
+                courcename = contentname #content最初のやつを名前にする
+            
             #print(f"URL,{contenturl}")
             source = requests.get(contenturl,cookies=cookies)
             acspath = getacs(source.text)
             url = webclassurl+"/webclass/"+acspath
             source = requests.get(url,cookies=cookies)
             soup = BeautifulSoup(source.text,"html.parser")
-            putlog(f"content:{contenttitle.get_text()}")
-            putlog(f"url:{contenturl}")
-            #putlog(f"{source.text}")
+            general.putlog(f"content:{contenttitle.get_text()}")
+            general.putlog(f"url:{contenturl}")
+            #general.putlog(f"{source.text}")
             chapterpath = soup.find("frame",{"name":"webclass_chapter"}).attrs["src"].replace("&amp;","&")
-            putlog(f"chapterpath:{chapterpath}")
+            general.putlog(f"chapterpath:{chapterpath}")
             chapterurl = webclassurl+"/webclass/"+chapterpath
             source_chapter = requests.get(chapterurl,cookies=cookies)
             soup_chapter = BeautifulSoup(source_chapter.text,"html.parser")#チャプターのhtml取得
-            #putlog(f"{soup_chapter.prettify}")
+            #general.putlog(f"{soup_chapter.prettify}")
             json_str= soup_chapter.find("script",id = "json-data").get_text()
-            #putlog(f"str:{json_str}")
+            #general.putlog(f"str:{json_str}")
             pagedata = json.loads(json_str)#資料の情報をjson形式で保存
-            #putlog(json.dumps(pagedata,indent=2))
+            #general.putlog(json.dumps(pagedata,indent=2))
             text_urls = pagedata["text_urls"]
-            for texturl in text_urls.values():
-                putlog(f"texturl:{texturl}")
+            general.putlog(f"text_urls:{text_urls}")
+            chapternames = getchapternames(soup_chapter,len(text_urls.values()))
+            general.putlog(f"chapternames:{chapternames}")
+            for i in range(len(chapternames)):#chapterごとの操作
+                filepath = f"{defaultpath}/{classname}/{courcename}/{contentname}"
+                print(filepath)
+                os.makedirs(filepath,exist_ok=True)
+                filepath = f"{filepath}/{chapternames[i]}.pdf"
+                filedownload.getfiles(text_urls[f"{i+1}"],cookies,filepath)
             
         except:
-            print("コンテンツ,閉鎖")
+            print("コンテンツ,閉鎖もしくは予期せぬエラー")
+
+def getchapternames(soup,page):
+    TOC = soup.find("table",{"id":"TOCLayout"})
+    chapters = soup.find_all("span",{"class":"size2 darkslategray"})
+    n = page
+    chapternames = []
+    for i in  range(int(n)):
+        chaptername = chapters[i*2].get_text()+","+chapters[i*2+1].get_text()
+        chapternames.append(chaptername)
+    return chapternames
 
 def getsections(page,cookies):
     divs = page.find_all("div")  # divタグを持つ要素を取得
     for n in divs:
         n.extract()
     name = page.get_text()
-    calssname = name[9:]  # "授業名"の部分を取得
-    print(f"授業名:{calssname}")  # 各リンクのURLを表示
-    putlog(f"授業名:{calssname}")
+    classname = name[9:]  # "授業名"の部分を取得
+    print(f"授業名:{classname}")  # 各リンクのURLを表示
+    general.putlog(f"授業名:{classname}")
     classurl = webclassurl+page['href']
     #print(f"URL:{classurl}")
-    os.makedirs(defaultpath+"/"+calssname, exist_ok=True)
+    os.makedirs(defaultpath+"/"+classname, exist_ok=True)
     
     source = responceacspath(classurl,cookies)#偽リダイレクトの時のアクセス方法
     soup = BeautifulSoup(source.text,"html.parser")
     sectionelements = soup.find_all("section",class_="cl-contentsList_folder")#授業内容の部分を取得
     for i in range(len(sectionelements)):
-        getcontents(sectionelements[i],cookies)
-    kugiri()
+        getcontents(sectionelements[i],cookies,classname)
+    general.kugiri()
 
 def getClasses(page,cookies):
     soup = BeautifulSoup(page, "html.parser")
@@ -198,14 +209,3 @@ def getClasses(page,cookies):
     hrefs = schedule_element.find_all("a", href=True)
     for href in hrefs:
         getsections(href,cookies)
-"""
-
-
-general.putlog(f"=======================Today:{datetime.datetime.now()},=======================")
-general.putlog(f"WBCONV_REQ_P made by ktsgsg.")
-os.makedirs(webclass.defaultpath,exist_ok=True)
-wbc = webclass.webclass()
-source = requests.get(wbc.url,cookies=wbc.cookies).text
-#putlog(f"requestURL>{wbc.url}")
-webclass.getClasses(source,wbc.cookies)
-
