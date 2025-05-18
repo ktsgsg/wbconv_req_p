@@ -5,9 +5,17 @@ import urllib
 from bs4 import BeautifulSoup
 import time
 import os
+import sys
+import datetime
+
 
 defaultpath = "class"
 webclassurl = "https://rpwebcls.meijo-u.ac.jp"
+def putlog(str):
+    STDOUT = sys.stdout
+    sys.stdout = open("log.txt","a")
+    print(str)
+    sys.stdout = STDOUT
 
 def getacs(source):
     soup = BeautifulSoup(source,"html.parser")
@@ -116,9 +124,10 @@ def responceacspath(url,cookies):
     #print(responce.text)
     return responce
 
-def getcontents(sectionelement,cookies):
+def getcontents(sectionelement:BeautifulSoup,cookies):
     title = sectionelement.find("h4",class_="panel-title").get_text()
     print(f"コース名,{title}")
+    putlog(f"コース名,{title}" )
 
     contentselements = sectionelement.find(class_="list-group").find_all("section",class_="cl-contentsList_listGroupItem")#授業内容のグループを取得
     for j in range(len(contentselements)):
@@ -129,16 +138,24 @@ def getcontents(sectionelement,cookies):
             session_qd = urllib.parse.parse_qs(session_qs)#クエリパラメータを辞書型に変換
             contenturl = "https://rpwebcls.meijo-u.ac.jp/webclass/do_contents.php?reset_status=1&"+"set_contents_id="+session_qd["set_contents_id"][0]
             print(f"コンテンツ,{contenttitle.get_text()}")
-            print(f"URL,{contenturl}")
+            #print(f"URL,{contenturl}")
             source = requests.get(contenturl,cookies=cookies)
             acspath = getacs(source.text)
             url = webclassurl+"/webclass/"+acspath
             source = requests.get(url,cookies=cookies)
-            print(source.text)
+            soup = BeautifulSoup(source.text,"html.parser")
+            putlog(f"content:{contenttitle.get_text()}")
+            putlog(f"url:{contenturl}")
+            #putlog(f"{source.text}")
+            chapterpath = soup.find("frame",{"name":"webclass_chapter"}).attrs["src"].replace("&amp;","&")
+            putlog(f"chapterpath:{chapterpath}")
+            chapterurl = webclassurl+"/webclass/"+chapterpath
+            source_chapter = requests.get(chapterurl,cookies=cookies)
+            soup_chapter = BeautifulSoup(source_chapter.text,"html.parser")#チャプターのhtml取得
+            putlog(f"{soup_chapter.prettify}")
+            
         except:
             print("コンテンツ,閉鎖")
-
-
 
 def getsections(page,cookies):
     divs = page.find_all("div")  # divタグを持つ要素を取得
@@ -147,6 +164,7 @@ def getsections(page,cookies):
     name = page.get_text()
     calssname = name[9:]  # "授業名"の部分を取得
     print(f"授業名:{calssname}")  # 各リンクのURLを表示
+    putlog(f"授業名:{calssname}")
     classurl = webclassurl+page['href']
     #print(f"URL:{classurl}")
     os.makedirs(defaultpath+"/"+calssname, exist_ok=True)
@@ -168,8 +186,11 @@ def getClasses(page,cookies):
     for href in hrefs:
         getsections(href,cookies)
 
+putlog(f"=======================Today:{datetime.datetime.now()},=======================")
+putlog(f"WBCONV_REQ_P made by ktsgsg.")
 os.makedirs(defaultpath,exist_ok=True)
 wbc = webclass()
 source = requests.get(wbc.url,cookies=wbc.cookies).text
+#putlog(f"requestURL>{wbc.url}")
 getClasses(source,wbc.cookies)
 
