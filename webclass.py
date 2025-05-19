@@ -5,7 +5,7 @@ import urllib
 from bs4 import BeautifulSoup
 import time
 import os
-import general
+import general as g
 import filedownload
 
 defaultpath = "class"
@@ -17,11 +17,18 @@ def getacs(source):
     acsPath = exccode.split('"')[1].replace('&amp;',"&")
     return acsPath
 
+def truetatuscode(statuscode,truestatucode):
+    if statuscode != truestatucode:
+        print("エラーが発生しました.パソコンがインターネットにつながっていないか，回線が混み合っています．")
+        g.putlog(f"エラー,statuscode:{statuscode}")
+        raise Exception(f"正しいstatuscodeではありません.\n statuscode:{statuscode}.\nしばらくしてから起動してください.")
+
 class webclass:
     def __init__(self):
         tokenId = getToken()
         url = "https://rpwebcls.meijo-u.ac.jp/webclass/login.php?auth_mode=SAML"
         res = requests.get(url,allow_redirects=False)
+        #truetatuscode(res.status_code,302)#statuscode確認
         #print("location")
         #print(res.headers)
         #kugiri()
@@ -31,11 +38,11 @@ class webclass:
         #print("cookies:")
         #print(cookies)
         #kugiri()
-
         wbres = requests.get(location,cookies=cookies)
+        truetatuscode(wbres.status_code,200)
         #print(wbres.text)
         #kugiri()
-        soup = BeautifulSoup( wbres.text,"html.parser")
+        soup = BeautifulSoup(wbres.text,"html.parser")
         responsedatas =soup.find_all("input")
         SAMLResponse=responsedatas[0].attrs["value"]
         RelayState = responsedatas[1].attrs["value"]
@@ -47,78 +54,118 @@ class webclass:
         req = urllib.parse.urlencode(data)
         defaultsp = "https://rpwebcls.meijo-u.ac.jp/simplesaml/module.php/saml/sp/saml2-acs.php/default-sp"
         wbres = requests.post(defaultsp,cookies=cookies,headers=headers,data=req,allow_redirects=False)
+        #truetatuscode(wbres.status_code,303)
         #print(data)
-        general.kugiri()
+        g.kugiri()
         print("SAMLAuthToken")
         SimpleSAML = wbres.cookies.get_dict()['SimpleSAML']
         SimpleSAMLAuthToken = wbres.cookies.get_dict()['SimpleSAMLAuthToken']
         cookies['SimpleSAML'] = SimpleSAML
         cookies['SimpleSAMLAuthToken'] = SimpleSAMLAuthToken
         print(cookies)
-        general.kugiri()
+        g.kugiri()
         loginphp = requests.get(url,cookies=cookies,allow_redirects=False)
+        #truetatuscode(wbres.status_code,303)
         acsPath = getacs(loginphp.text)
-        general.kugiri()
+        g.kugiri()
         e = loginphp.cookies.get_dict()
         cookies['WBT_Session'] =e['WBT_Session']
         cookies['SimpleSAML'] = e['SimpleSAML']
         cookies['WCAC'] = e['WCAC']
         print(cookies)
-        general.kugiri()
+        g.kugiri()
         webclassurl_ = webclassurl + acsPath
         webclasresponce = requests.get(webclassurl_,cookies=cookies)
+        truetatuscode(webclasresponce.status_code,200)
         cookies['wcui_session_settings'] = webclasresponce.cookies.get_dict()['wcui_session_settings']
-        print(requests.get(webclassurl_,cookies=cookies).headers)
+        #print(requests.get(webclassurl_,cookies=cookies).headers)
         self.url = webclassurl_
         self.cookies = cookies
 
 def getToken():
-    url = 'https://slbsso.meijo-u.ac.jp/opensso/json/authenticate?realm=/enduser&realm=/' \
-    'enduser&forward=true&spEntityID=https%3A%2F%2Frpwebcls.meijo-u.ac.jp%2Fsaml-sp&goto=/' \
-    'opensso%2FSSORedirect%2FmetaAlias%2Fenduser%2Fidp6%3FReqID%3D_b59b5741fd497f353186a827' \
-    '3aa2e30628f083f316%26index%3Dnull%26acsURL%3Dhttps%253A%252F%252Frpwebcls.meijo-u.ac.jp%' \
-    '252Fsimplesaml%252Fmodule.php%252Fsaml%252Fsp%252Fsaml2-acs.php%252Fdefault-sp%26spEntit' \
-    'yID%3Dhttps%253A%252F%252Frpwebcls.meijo-u.ac.jp%252Fsaml-sp%26binding%3Durn%253Aoasis%2' \
-    '53Anames%253Atc%253ASAML%253A2.0%253Abindings%253AHTTP-POST&AMAuthCookie=' 
-    
-    headers = {
-        'Content-Type' : 'application/json'
-    }
-    str = requests.post(url,headers=headers)
-    jsn = json.loads(str.text)
-    jsn["callbacks"][0]["input"][0]["value"] = '241205181'
-    jsn["callbacks"][1]["input"][0]["value"] = 'Yamake2011$'
-    file = open("data.json","w")
-    json.dump(jsn,file,indent=2)
-    file.close()
-    statuscode = 0
-    for i in range(10):
-        token = requests.post(url,headers=headers,json=jsn)
-        statuscode = token.status_code
-        #print(statuscode)
-        if statuscode == 200:
-            break
-        time.sleep(0.5)
+    try:
+        url = 'https://slbsso.meijo-u.ac.jp/opensso/json/authenticate?realm=/enduser&realm=/' \
+        'enduser&forward=true&spEntityID=https%3A%2F%2Frpwebcls.meijo-u.ac.jp%2Fsaml-sp&goto=/' \
+        'opensso%2FSSORedirect%2FmetaAlias%2Fenduser%2Fidp6%3FReqID%3D_b59b5741fd497f353186a827' \
+        '3aa2e30628f083f316%26index%3Dnull%26acsURL%3Dhttps%253A%252F%252Frpwebcls.meijo-u.ac.jp%' \
+        '252Fsimplesaml%252Fmodule.php%252Fsaml%252Fsp%252Fsaml2-acs.php%252Fdefault-sp%26spEntit' \
+        'yID%3Dhttps%253A%252F%252Frpwebcls.meijo-u.ac.jp%252Fsaml-sp%26binding%3Durn%253Aoasis%2' \
+        '53Anames%253Atc%253ASAML%253A2.0%253Abindings%253AHTTP-POST&AMAuthCookie=' 
         
-    succesURL = json.loads(token.text)
-    tokenId = succesURL["tokenId"]
-    #print(succesURL)
-    print(f"tokenId:{tokenId}")
-    #kugiri()
-    return tokenId
+        headers = {
+            'Content-Type' : 'application/json'
+        }
+        str = requests.post(url,headers=headers)
+        jsn = json.loads(str.text)
+        jsn["callbacks"][0]["input"][0]["value"] = '241205181'
+        jsn["callbacks"][1]["input"][0]["value"] = 'Yamake2011$'
+        file = open("data.json","w")
+        json.dump(jsn,file,indent=2)
+        file.close()
+        statuscode = 0
+        for i in range(20):
+            token = requests.post(url,headers=headers,json=jsn)
+            statuscode = token.status_code
+            #print(statuscode)
+            if statuscode == 200:
+                break
+            time.sleep(0.5)
+            
+        succesURL = json.loads(token.text)
+        tokenId = succesURL["tokenId"]
+        #print(succesURL)
+        print(f"tokenId:{tokenId}")
+        #kugiri()
+        return tokenId
+    except:
+        print("tokenidを取得できませんでした")
+        raise BaseException("tokenを取得することができませんでした.時間をおいて再度試してください.")
 
 def responceacspath(url,cookies):
     source = requests.get(url,cookies=cookies)
     #print(source.text)
     acspath = getacs(source.text)
     responce = requests.get(webclassurl+acspath,cookies=cookies)
+    truetatuscode(responce.status_code,200)
     #print(responce.text)
     return responce
+
+def getshowinfopagecontent(soup:BeautifulSoup,cookies):
+    g.putlog("GGGAAA2")#識別するやつ
+    g.putlog(soup.prettify)
+    path = soup.find("frame",{"name":"contentsInfo"})["src"].replace('&amp;',"&")
+    url = webclassurl+"/webclass/"+path
+    header ={
+        "content-type":"application/x-www-form-urlencoded"
+    }
+    data = {
+        "next":"%E9%96%8B%E5%A7%8B"
+    }
+    req =urllib.parse.urlencode(data)
+    responce = requests.post(url,headers=header,data=req,cookies=cookies)
+    soup = BeautifulSoup(responce.text,"html.parser")
+    g.putlog("GGGAAA23")
+    g.putlog(soup.prettify)
+    execode = soup.find("script").string
+    execode = execode.split('"')[1].replace('&amp;',"&")
+    url = webclassurl+execode
+    source = requests.get(url,cookies=cookies)
+    
+    g.putlog("GGGAAA234")
+    g.putlog(source.text)
+    soup = BeautifulSoup(source.text,"html.parser")
+    execode = soup.find("script").string
+    execode = execode.split('"')[1].replace('&amp;',"&")
+    url = webclassurl+"/webclass/"+execode
+    source = requests.get(url,cookies=cookies)
+    g.putlog("GGGAAA2345")
+    g.putlog(source.text)
+    return source
 
 def getcontents(sectionelement:BeautifulSoup,cookies,classname):
     title = sectionelement.find("h4",class_="panel-title").get_text()
     print(f"コース名,{title}")
-    general.putlog(f"コース名,{title}" )
+    g.putlog(f"コース名,{title}" )
     courcename = title
     no_courcename = False 
     if courcename == "" or courcename == " " :#もしcourcenameが空だったら(味文みたいなやつの場合)
@@ -144,23 +191,28 @@ def getcontents(sectionelement:BeautifulSoup,cookies,classname):
             url = webclassurl+"/webclass/"+acspath
             source = requests.get(url,cookies=cookies)
             soup = BeautifulSoup(source.text,"html.parser")
-            general.putlog(f"content:{contenttitle.get_text()}")
-            general.putlog(f"url:{contenturl}")
-            #general.putlog(f"{source.text}")
+            if "show_frame.php" in acspath:#移動先が確認画面の場合
+                source = getshowinfopagecontent(soup,cookies)#確認画面後に上書き
+                soup = BeautifulSoup(source.text)
+            #g.putlog(f"{source.text}")
+            
+            g.putlog(f"content:{contenttitle.get_text()}")
+            g.putlog(f"url:{contenturl}")
+            
             chapterpath = soup.find("frame",{"name":"webclass_chapter"}).attrs["src"].replace("&amp;","&")
-            general.putlog(f"chapterpath:{chapterpath}")
+            g.putlog(f"chapterpath:{chapterpath}")
             chapterurl = webclassurl+"/webclass/"+chapterpath
             source_chapter = requests.get(chapterurl,cookies=cookies)
             soup_chapter = BeautifulSoup(source_chapter.text,"html.parser")#チャプターのhtml取得
-            #general.putlog(f"{soup_chapter.prettify}")
+            #g.putlog(f"{soup_chapter.prettify}")
             json_str= soup_chapter.find("script",id = "json-data").get_text()
-            #general.putlog(f"str:{json_str}")
+            #g.putlog(f"str:{json_str}")
             pagedata = json.loads(json_str)#資料の情報をjson形式で保存
-            #general.putlog(json.dumps(pagedata,indent=2))
+            #g.putlog(json.dumps(pagedata,indent=2))
             text_urls = pagedata["text_urls"]
-            general.putlog(f"text_urls:{text_urls}")
+            g.putlog(f"text_urls:{text_urls}")
             chapternames = getchapternames(soup_chapter,len(text_urls.values()))
-            general.putlog(f"chapternames:{chapternames}")
+            g.putlog(f"chapternames:{chapternames}")
             for i in range(len(chapternames)):#chapterごとの操作
                 filepath = f"{defaultpath}/{classname}/{courcename}/{contentname}"
                 print(filepath)
@@ -188,7 +240,7 @@ def getsections(page,cookies):
     name = page.get_text()
     classname = name[9:]  # "授業名"の部分を取得
     print(f"授業名:{classname}")  # 各リンクのURLを表示
-    general.putlog(f"授業名:{classname}")
+    g.putlog(f"授業名:{classname}")
     classurl = webclassurl+page['href']
     #print(f"URL:{classurl}")
     os.makedirs(defaultpath+"/"+classname, exist_ok=True)
@@ -198,7 +250,7 @@ def getsections(page,cookies):
     sectionelements = soup.find_all("section",class_="cl-contentsList_folder")#授業内容の部分を取得
     for i in range(len(sectionelements)):
         getcontents(sectionelements[i],cookies,classname)
-    general.kugiri()
+    g.kugiri()
 
 def getClasses(page,cookies):
     soup = BeautifulSoup(page, "html.parser")

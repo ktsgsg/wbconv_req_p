@@ -205,7 +205,7 @@ general.putlog(f"=======================Today:{datetime.datetime.now()},========
 general.putlog(f"WBCONV_REQ_P made by ktsgsg.")
 os.makedirs(webclass.defaultpath,exist_ok=True)
 wbc = webclass.webclass()
-source = requests.get(wbc.url,cookies=wbc.cookies).text
+source = requests.get(wbc.url,cookies=wbc.cookies)
 #putlog(f"requestURL>{wbc.url}")
-webclass.getClasses(source,wbc.cookies)
+webclass.getClasses(source.text,wbc.cookies)
 
