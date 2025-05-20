@@ -98,7 +98,7 @@ def getToken():
         str = requests.post(url,headers=headers)
         jsn = json.loads(str.text)
         jsn["callbacks"][0]["input"][0]["value"] = '241205181'
-        jsn["callbacks"][1]["input"][0]["value"] = 'Yamake2011$'
+        jsn["callbacks"][1]["input"][0]["value"] = '************'
         file = open("data.json","w")
         json.dump(jsn,file,indent=2)
         file.close()
