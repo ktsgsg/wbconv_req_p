@@ -4,9 +4,24 @@ import requests
 import webclass
 import general as g
 
+def get_qstn_fileurl(query_str):
+    query = urllib.parse.parse_qs(query_str)
+    result = []
+    file = query["file"]
+    if ".pdf" in file[0]:
+        result.append("pdf")
+    else:
+        result.append("other")
+    #print(contents_url,file)
+    fileurl = webclass.webclassurl + file[0]
+    result.append(fileurl)#要素0にはファイルのタイプ 1にはファイルのurl
+    return result
+
 def get_fileurl(query_str):
     query = urllib.parse.parse_qs(query_str)
     result = []
+    contents_url = ""
+    
     contents_url = query["contents_url"]
     file = query["file"]
     if ".pdf" in file[0]:
@@ -26,7 +41,12 @@ def downloadpdf(url,cookies,filepath):
     file.close()
 
 def getfiles(query,cookies,filepath):
-    fileurl = get_fileurl(query)
+    fileurl = []
+    if "/webclass/loadit.php" in query:
+        fileurl = get_qstn_fileurl(query)
+    if "/webclass/txtbk_show_text.php" in query:
+        fileurl = get_fileurl(query)
+    
     print(fileurl)
     if fileurl[0] == "pdf":
         print("Filetype:PDF")
@@ -43,3 +63,8 @@ url = "https://www.mext.go.jp/component/b_menu/shingi/toushin/__icsFiles/afieldf
 wb = webclass.webclass()
 getfiles(query,wb.cookies,"test.pdf")
 """
+
+#path = "/webclass/loadit.php?lang=JAPANESE&file=/webclass/text/20/2025016424060/20ecb1caf7f7c3d1bca815e5a10d833a/b025793cfdc053b4.pdf"
+#query = "/webclass/txtbk_show_text.php?page=1&text=7e1580301496d50b522dffc68c6a4d21&file=442a35021a1283f1bfcc4d600706e16d%2Fbfcc4d600706e16d.pdf&contents_dir=%2Fvar%2Fwww%2Fwebclass%2Ftext%2F20%2F2025016424080%2F&contents_url=%2Fwebclass%2Ftext%2F20%2F2025016424080%2F&contents_id=e19bc32431943c0cd5814fe40b44be91"
+#get_fileurl(query)
+#get_qstn_fileurl(path)

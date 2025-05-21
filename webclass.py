@@ -203,8 +203,28 @@ def getcontents(sectionelement:BeautifulSoup,cookies,classname):
 
             uri = urllib.parse.urlparse(url)
             g.putlog(f"path:{uri.path}")
-            if(uri.path == "/webclass/qstn_frame.php"):
+            if(uri.path == "/webclass/qstn_frame.php"):#パスが課題の場合
                 print("qtn selected")
+                #question frame
+                anserpath = soup.find("frame",{"name":"answer"})["src"]#<FRAME src='dqstn_answer.php?rnd=c4d7c&amp;set_contents_id=59e541e4f288e80ed9303de98ad069f0&amp;language=JAPANESE&amp;content_mode=i&amp;start_from_show_info=true&amp;content_mode=q&amp;acs_=4c8bb7ee' Name = 'answer'>
+                g.putlog(f"anser path:{anserpath}")
+                ansurl = webclassurl+"/webclass/"+ anserpath
+                g.putlog(f"anser path:{ansurl}")
+                source_ans = requests.get(ansurl,cookies=cookies)
+                soup = BeautifulSoup(source_ans.text,"html.parser")
+                g.putlog(soup.prettify())
+                print("soup seeing")
+                question_path = soup.find("input",{"name":"question_url"})["value"]
+                g.putlog(f"question_path:{question_path}")
+                query = question_path
+                g.putlog(f"query:{query}")
+                
+                filepath = f"{defaultpath}/{classname}/{courcename}/{contentname}"
+                print(filepath)
+                os.makedirs(filepath,exist_ok=True)
+                filepath = f"{filepath}/work.pdf"
+                filedownload.getfiles(query,cookies,filepath)
+                
             if(uri.path == "/webclass/txtbk_frame.php"):
                 print("txtbk selected")
                 chapterpath = soup.find("frame",{"name":"webclass_chapter"}).attrs["src"].replace("&amp;","&")
@@ -221,18 +241,13 @@ def getcontents(sectionelement:BeautifulSoup,cookies,classname):
                 g.putlog(f"text_urls:{text_urls}")
                 chapternames = getchapternames(soup_chapter,len(text_urls.values()))
                 g.putlog(f"chapternames:{chapternames}")
-                
-            #デバッグ用#ここにbreakpointで確認できる#
-            if courcename == "課題":
-                print("一時停止")
-            #デバッグ用#
-                
-            for i in range(len(chapternames)):#chapterごとの操作
-                filepath = f"{defaultpath}/{classname}/{courcename}/{contentname}"
-                print(filepath)
-                os.makedirs(filepath,exist_ok=True)
-                filepath = f"{filepath}/{chapternames[i]}.pdf"
-                filedownload.getfiles(text_urls[f"{i+1}"],cookies,filepath)
+                    
+                for i in range(len(chapternames)):#chapterごとの操作
+                    filepath = f"{defaultpath}/{classname}/{courcename}/{contentname}"
+                    print(filepath)
+                    os.makedirs(filepath,exist_ok=True)
+                    filepath = f"{filepath}/{chapternames[i]}.pdf"
+                    filedownload.getfiles(text_urls[f"{i+1}"],cookies,filepath)
             
         except:
             print("コンテンツ,閉鎖もしくは予期せぬエラー")
