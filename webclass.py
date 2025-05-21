@@ -24,8 +24,8 @@ def truetatuscode(statuscode,truestatucode):
         raise Exception(f"正しいstatuscodeではありません.\n statuscode:{statuscode}.\nしばらくしてから起動してください.")
 
 class webclass:
-    def __init__(self):
-        tokenId = getToken()
+    def __init__(self,userid,password):
+        tokenId = getToken(userid,password)
         url = "https://rpwebcls.meijo-u.ac.jp/webclass/login.php?auth_mode=SAML"
         res = requests.get(url,allow_redirects=False)
         #truetatuscode(res.status_code,302)#statuscode確認
@@ -82,7 +82,7 @@ class webclass:
         self.url = webclassurl_
         self.cookies = cookies
 
-def getToken():
+def getToken(userid,password):
     try:
         url = 'https://slbsso.meijo-u.ac.jp/opensso/json/authenticate?realm=/enduser&realm=/' \
         'enduser&forward=true&spEntityID=https%3A%2F%2Frpwebcls.meijo-u.ac.jp%2Fsaml-sp&goto=/' \
@@ -97,8 +97,8 @@ def getToken():
         }
         str = requests.post(url,headers=headers)
         jsn = json.loads(str.text)
-        jsn["callbacks"][0]["input"][0]["value"] = '241205181'
-        jsn["callbacks"][1]["input"][0]["value"] = 'Yamake2011$s'
+        jsn["callbacks"][0]["input"][0]["value"] = userid
+        jsn["callbacks"][1]["input"][0]["value"] = password
         file = open("data.json","w")
         json.dump(jsn,file,indent=2)
         file.close()

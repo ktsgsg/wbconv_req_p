@@ -9,12 +9,15 @@ import os
 import datetime
 import webclass
 import general
+import getpass
 
 
 general.putlog(f"=======================Today:{datetime.datetime.now()},=======================")
 general.putlog(f"WBCONV_REQ_P made by ktsgsg.")
 os.makedirs(webclass.defaultpath,exist_ok=True)
-wbc = webclass.webclass()
+userid = input("userid:")
+password = getpass.getpass("pasword:")
+wbc = webclass.webclass(userid,password)
 source = requests.get(wbc.url,cookies=wbc.cookies)
 #putlog(f"requestURL>{wbc.url}")
 webclass.getClasses(source.text,wbc.cookies)
