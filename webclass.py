@@ -98,7 +98,7 @@ def getToken():
         str = requests.post(url,headers=headers)
         jsn = json.loads(str.text)
         jsn["callbacks"][0]["input"][0]["value"] = '241205181'
-        jsn["callbacks"][1]["input"][0]["value"] = '************'
+        jsn["callbacks"][1]["input"][0]["value"] = 'Yamake2011$s'
         file = open("data.json","w")
         json.dump(jsn,file,indent=2)
         file.close()
@@ -170,6 +170,7 @@ def getcontents(sectionelement:BeautifulSoup,cookies,classname):
     no_courcename = False 
     if courcename == "" or courcename == " " :#もしcourcenameが空だったら(味文みたいなやつの場合)
         no_courcename = True #no_courcenameフラグを立てる 
+        #<input type='hidden' name='question_url' value='/webclass/loadit.php?lang=JAPANESE&amp;file=%2Fwebclass%2Ftext%2F20%2F2025016424060%2Faf459037367d3198fc86f2b2088bc141%2F971c7e050499c2dd.pdf'>
 
     contentselements = sectionelement.find(class_="list-group").find_all("section",class_="cl-contentsList_listGroupItem")#授業内容のグループを取得
     for j in range(len(contentselements)):
@@ -193,26 +194,39 @@ def getcontents(sectionelement:BeautifulSoup,cookies,classname):
             soup = BeautifulSoup(source.text,"html.parser")
             if "show_frame.php" in acspath:#移動先が確認画面の場合
                 source = getshowinfopagecontent(soup,cookies)#確認画面後に上書き
+                url = source.url
                 soup = BeautifulSoup(source.text)
             #g.putlog(f"{source.text}")
             
             g.putlog(f"content:{contenttitle.get_text()}")
-            g.putlog(f"url:{contenturl}")
-            
-            chapterpath = soup.find("frame",{"name":"webclass_chapter"}).attrs["src"].replace("&amp;","&")
-            g.putlog(f"chapterpath:{chapterpath}")
-            chapterurl = webclassurl+"/webclass/"+chapterpath
-            source_chapter = requests.get(chapterurl,cookies=cookies)
-            soup_chapter = BeautifulSoup(source_chapter.text,"html.parser")#チャプターのhtml取得
-            #g.putlog(f"{soup_chapter.prettify}")
-            json_str= soup_chapter.find("script",id = "json-data").get_text()
-            #g.putlog(f"str:{json_str}")
-            pagedata = json.loads(json_str)#資料の情報をjson形式で保存
-            #g.putlog(json.dumps(pagedata,indent=2))
-            text_urls = pagedata["text_urls"]
-            g.putlog(f"text_urls:{text_urls}")
-            chapternames = getchapternames(soup_chapter,len(text_urls.values()))
-            g.putlog(f"chapternames:{chapternames}")
+            g.putlog(f"url:{url}")
+
+            uri = urllib.parse.urlparse(url)
+            g.putlog(f"path:{uri.path}")
+            if(uri.path == "/webclass/qstn_frame.php"):
+                print("qtn selected")
+            if(uri.path == "/webclass/txtbk_frame.php"):
+                print("txtbk selected")
+                chapterpath = soup.find("frame",{"name":"webclass_chapter"}).attrs["src"].replace("&amp;","&")
+                g.putlog(f"chapterpath:{chapterpath}")
+                chapterurl = webclassurl+"/webclass/"+chapterpath
+                source_chapter = requests.get(chapterurl,cookies=cookies)
+                soup_chapter = BeautifulSoup(source_chapter.text,"html.parser")#チャプターのhtml取得
+                #g.putlog(f"{soup_chapter.prettify}")
+                json_str= soup_chapter.find("script",id = "json-data").get_text()
+                #g.putlog(f"str:{json_str}")
+                pagedata = json.loads(json_str)#資料の情報をjson形式で保存
+                #g.putlog(json.dumps(pagedata,indent=2))
+                text_urls = pagedata["text_urls"]
+                g.putlog(f"text_urls:{text_urls}")
+                chapternames = getchapternames(soup_chapter,len(text_urls.values()))
+                g.putlog(f"chapternames:{chapternames}")
+                
+            #デバッグ用#ここにbreakpointで確認できる#
+            if courcename == "課題":
+                print("一時停止")
+            #デバッグ用#
+                
             for i in range(len(chapternames)):#chapterごとの操作
                 filepath = f"{defaultpath}/{classname}/{courcename}/{contentname}"
                 print(filepath)
