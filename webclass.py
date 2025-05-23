@@ -95,13 +95,13 @@ def getToken(userid,password):
         headers = {
             'Content-Type' : 'application/json'
         }
-        str = requests.post(url,headers=headers)
-        jsn = json.loads(str.text)
+        source = requests.post(url,headers=headers)
+        truetatuscode(source.status_code,200)
+        print("template loaded")
+        jsn = json.loads(source.text)
+        
         jsn["callbacks"][0]["input"][0]["value"] = userid
         jsn["callbacks"][1]["input"][0]["value"] = password
-        file = open("data.json","w")
-        json.dump(jsn,file,indent=2)
-        file.close()
         statuscode = 0
         for i in range(20):
             token = requests.post(url,headers=headers,json=jsn)
